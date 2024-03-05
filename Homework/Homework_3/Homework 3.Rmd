@@ -31,7 +31,7 @@ Suppose we are attempting to predict a person's ability to run a marathon in und
 ```
 Find each of the following. Use proper formatting in R Markdown when you type your answers. You can put equations between dollar signs (`$$`) and you can use the `\frac{}{}` (for a small fraction) or `\dfrac{}{}` (for a larger one) commands to nicely type fractions.
 
--   The prevalence of those that can run a mile under 4 hours.
+-   The prevalence of those that can run a mile (?marathon?) under 4 hours.
 -   The overall accuracy of these predictions.
 -   The sensitivity (recall).
 -   The specificity.
@@ -40,9 +40,36 @@ Find each of the following. Use proper formatting in R Markdown when you type yo
 -   The balanced accuracy.
 -   Cohen's Kappa ($\kappa$). Check out this link on [Wikipedia](https://en.wikipedia.org/wiki/Cohen%27s_kappa) and scroll down to the section entitled **Binary classification confusion matrix**.
 
+```{=tex}
+
+$\bullet$ Prevalence (frequency) of those capable of 4-hour marathon:  $58 + 37 = 95$
+\par and prevalence as relative frequency : $\frac{95}{414}=0.22947$ or $22.95\%$
+
+$\bullet$ Overall accuracy : $\dfrac{58+217}{58+102+37+217}=\dfrac{275}{414}=0.66425$ or $66.53\%$
+
+$\bullet$ Sensitivity/recall : $ \dfrac{58}{95}=0.61053 $ or $ 61.05\% $
+
+$\bullet$ Specificity : $ \dfrac{217}{319}=0.68025 $ or $68.03\%$
+
+$\bullet$ Precision (PPV) : $ \dfrac{58}{160} = 0.3625 $ or $36.45\%$
+
+$\bullet$ Negative Predictive Value : $ \dfrac{217}{254} = 0.85433 $ or $85.43\%$
+
+$\bullet$ Balanced Accuracy : $ \dfrac{0.61053+0.68025}{2}=0.64539$ or $64.54\%$
+
+$\bullet$ Cohen's Kappa (joint-probability of agreement): 
+$ \kappa = \dfrac{ 2\times(TP \times TN - FN \times FP) }{(TP + FP)\times (FP + TN) + (TP + FN) \times (FN + TN)} $
+$= \dfrac{2(58\times 217 - 37\times 102)}{(58+102)\times (102+217) + (58+37)\times (37+217)} = \dfrac{17624}{75170} = 0.23446$
+```
 ### Part b (3 points)
 
 Read more of the Wikipedia article on Cohen's Kappa, especially the **Interpreting magnitude** and the **Limitations** part. I cannot really verify that you did this, so this is on your honor.
+
+-   P-value for $/kappa$ is rarely reported because low values can be significantly different from zero but of insufficient magnitude
+-   Confidence intervalles may be constructed for a theoretical infinite number of items checked
+-   Prevalence and bias influence magnitude of $\kappa$: higher when codes ('ratings') are equiprobable but also higher when codes are asymmetrically distributed; higher when number of codes increases
+-   Thus guidelines of magnitude interpretation vary and are unsubstantiated
+-   May be informative to instead report quantity and allocation disagreement
 
 # Problem 2 (81 points)
 
@@ -52,9 +79,68 @@ The `adult` dataset (from the UC Irvine [database](https://archive.ics.uci.edu/d
 
 Read the data into **R** as a tibble, change the column names to be descriptive about what the variable in that column is, and change the one containing salary information to a factor. Read the "adult.names" file to see the column names.
 
+```{r prob2a, eval=TRUE, echo=TRUE}
+
+library(tidyverse)
+library(caret)
+library(dplyr)
+library(httr)
+
+response <- GET("https://raw.githubusercontent.com/rbrown53/Math3190_Sp24/main/Data/adult.data")
+
+adult_data <- readr::read_csv(content(response, as = "text"),col_names = FALSE) |> 
+  rename(age = X1,
+         work_class = X2,
+         final_wght = X3,
+         education = X4,
+         edu_num = X5,
+         marital = X6,
+         occupation = X7,
+         relationship = X8,
+         race = X9,
+         sex = X10,
+         capital_gain = X11,
+         capital_loss = X12,
+         hrs_per_week = X13,
+         country_origin = X14,
+         salary = X15) |> 
+  mutate(salary = as_factor(salary),
+         work_class = as_factor(work_class),
+         education = as_factor(education),
+         marital = as_factor(marital),
+         occupation = as_factor(occupation),
+         relationship = as_factor(relationship),
+         race = as_factor(race),
+         sex = as_factor(sex),
+         country_origin = as_factor(country_origin))
+
+head(adult_data)
+
+```
+
 ### Part b (4 points)
 
 Randomly split the dataset into a training and a testing group. Let's use 4/5 of it for training and 1/5 for testing. You can do this with any function you'd like. Please set a seed before you do this so the results are reproducible.
+
+```{r prob2b, eval=TRUE, echo=TRUE}
+y <- adult_data$salary
+set.seed(2024)
+train_index <- createDataPartition(y , times=1, p=0.8, list=FALSE)
+
+train <- adult_data |>  
+  slice(train_index) |> 
+  select(-salary)
+
+y_train <- y[train_index]
+y_train <- factor(y_train, levels = c(">50K", "<=50K"))
+
+test <- adult_data |> 
+  slice(-train_index) |> 
+  select(-salary)
+
+y_test <- y[-train_index]
+y_test <- factor(y_test, levels = c(">50K", "<=50K"))
+```
 
 ### Part c (5 points)
 
@@ -62,19 +148,71 @@ Fit two models for predicting whether a person's salary is above \$50K or not:
 
 In the first, fit a logistic regression model using the `glm()` function with the `family` set to `"binomial"`. Use `age`, `education`, `race`, `sex`, and `hours_per_week` as the predictors.
 
+```{r prob2cLogit, eval=TRUE, echo=TRUE}
+
+predictors <- train |> 
+  select(age, education, race, sex, hrs_per_week)
+
+logit_model <- glm(y_train ~ . , family = 'binomial', data = predictors)
+
+summary(logit_model)
+
+```
+
 In the second, fit a $k$ nearest neighbors model with $k=7$ neighbors using the `knn3()` function in the `caret` package. Again, use `age`, `education`, `race`, `sex`, and `hours_per_week` as the predictors.
+
+```{r prob2cKNN, eval=TRUE, echo=TRUE}
+
+knn_model <- knn3(y_train ~ . , k=7, data=predictors)
+
+
+```
 
 ### Part d (5 points)
 
 With logistic regression, the most common cutoff value for the predicted probability for predicting a "success" is 0.5. Using 0.5 as this cutoff (above 0.5 should be labeled as "\>50K"), obtain the class predictions and convert the variable to a factor. You can use the `predict()` function with `type = "response"` to obtain the predicted probabilities of being in the "\>50K" group and then compare those probabilities to 0.5. Then use the `confusionMatrix()` function in the `caret` package to obtain the confusion matrix and many associated statistics. Print all of the output from that function.
 
+```{r prob2d, eval=TRUE, echo=TRUE}
+
+y_hat_logit <- predict(logit_model, type='response')  
+#probabilities predicted from training data
+
+predicted_class <- factor(
+  ifelse(y_hat_logit < 0.5, '>50K', '<=50K'), levels = c('>50K', '<=50K')
+  )
+
+cm_logit <- confusionMatrix(data = predicted_class, reference = y_train, positive = '>50K')
+
+print(cm_logit$table)
+print(cm_logit$overall)
+print(cm_logit$byClass)
+
+```
+
 ### Part e (4 points)
 
 Obtain the class predictions for your kNN model and output the results of the `confusionMatrix()` function for this. Note that it will take a few seconds to obtain the predictions for the kNN model.
 
+```{r prob2e, eval=TRUE, echo=TRUE}
+
+y_hat_knn <- predict(knn_model, predictors, type='class')  
+
+
+cm_knn <- confusionMatrix(data = y_hat_knn, reference = y_train, positive = '>50K')
+
+print(cm_knn$table)
+print(cm_knn$overall)
+print(cm_knn$byClass)
+
+
+```
+
 ### Part f (5 points)
 
 Using the output from parts d and e, write a few sentences comparing and contrasting the strengths and weaknesses of each model when it comes to predictions.
+
+**Response:** Whilst nearly equivalent in terms of *Accuracy* (kNN: 0.807, logistic: 0.802) for the training data, it appears that `logistic` regression has a marginal advantage in *Specificity* (0.936 vs. 0.909) and *Precision* (0.648 vs. 0.626) of predictions, whereas `k-NN` has an advantage in *Sensitivity/Recall* (0.486 vs. 0.374). Thus `k-NN` may more reliably predict *True Positive* outcomes, whereas `logistic` regression, in particular at the 0.50 LD cutoff, may more reliably avoid *False Positive* outcomes. It may be noteworthy that the joint-probability $\kappa$ of `k-NN` is higher, perhaps suggesting greater reliability of classification.
+
 
 ### Part g (8 points)
 
@@ -84,25 +222,181 @@ Then, if the best $k$ is different than 7, fit another kNN model with the optima
 
 It is fairly computationally expensive to optimize the $k$ for the kNN model here since it takes so long to obtain the predictions. So, this may take a few minutes to run.
 
+```{r prob2g1, eval=TRUE, echo=TRUE}
+
+train_data <- adult_data |>  
+  slice(train_index)
+train_data <- train_data |> 
+  select(age, education, race, sex, hrs_per_week, salary)
+
+set.seed(2024)
+
+train_knn <- train(salary ~ . , method = 'knn',
+                    data = train_data,
+                    trControl = trainControl(method ='cv'),
+                    tuneGrid = data.frame( k = seq(1,21,1) )
+                   )
+ggplot(train_knn, highlight = TRUE)
+
+train_knn$results
+
+train_k11 <- train(salary ~ . , method = 'knn', data = train_data, 
+                   tuneGrid = data.frame( k = 11 ))
+
+```
+
+**Response:** Highest $\kappa = 0.3557$ at $k=11$, but highest *accuracy*$=0.784$ at $k=18$ with $\kappa=0.34878$. Concluded by fitting a model with $k=11$.
+
 ### Part h (20 points)
 
 We mentioned the most common cutoff value for the predicted probability for predicting a "success" in logistic regression is 0.5. However, we can adjust this value to make it easier or more difficult to predict a success. Let's optimize this cutoff value using 5-fold cross validation. Note: we could also do this with kNN, but we will not on this assignment.
 
-Using the cutoff values from 0.15 to 0.85 by 0.05 (0.15, 0.20, 0.25, and so on up to 0.85) for predicting whether an adult has a salary above 50K, find which one performs best on the training set using the metric of Cohen's $\kappa$, which is given in the output of the `confusionMatrix()` function. You will need a couple loops here since the `train()` function cannot do this for us. Note: you can find the indices of the rows in each fold using the `createFolds()` function in the `caret` library. Please set a seed at the beginning of your code chunk for this part.
+Using the cutoff values from 0.15 to 0.85 by 0.05 (0.15, 0.20, 0.25, and so on up to 0.85) for predicting whether an adult has a salary above 50K, find which one performs best on the training set using the metric of Cohen's $\kappa$, which is given in the output of the `confusionMatrix()` function.
+
+You will need a couple loops here since the `train()` function cannot do this for us. Note: you can find the indices of the rows in each fold using the `createFolds()` function in the `caret` library. Please set a seed at the beginning of your code chunk for this part.
+
+```{r prob2h, eval=TRUE, echo=TRUE}
+
+cutoff_values <- seq(0.15, 0.85, 0.05)
+
+folds <- createFolds(train_data$salary, k = 5) #folds -- stratified sampling
+
+fit_logit <- train(salary ~ ., method = 'glm', data = train_data,
+             trControl = trainControl(method = 'cv', number = 5))
+
+
+# store results
+kappa_scores <- numeric( length(cutoff_values) )
+
+# iterating through each cutoff value
+for (i in seq_along(cutoff_values)) {
+  
+  # variable to store kappa scores for each fold
+  kappa_scores_fold <- numeric(5)
+  
+  # iterate over folds 
+    for (fold in 1:5) {
+      
+      #probabilities for each fold
+      fold_probs <- predict(fit_logit, type = 'prob', newdata = train_data[folds[[fold]], ])
+  
+      #need to effectively transpose 'fold_probs' with '>50K' column entries as "vector":
+      fold_predictions <- factor(fold_probs[,2] > cutoff_values[i], 
+                                levels = c(FALSE, TRUE), 
+                                labels = c('<=50K', '>50K') )
+      
+      fold_cm <- confusionMatrix(data = fold_predictions, 
+                                 reference = train_data$salary[folds[[fold]]] 
+                                 )
+      
+      kappa_scores_fold[fold] <- fold_cm$overall['Kappa']
+      
+    }
+    
+    # other way of calculating Cohen's Kappa
+    # kappa_scores_fold[fold] <- confusionMatrix(data = predictions, reference = valid_set$salary)$overall["Kappa"]
+    
+    # average kappa score across fold(s)
+    kappa_scores[i] <- mean(kappa_scores_fold)
+    
+  }
+  
+optimal_cutoff <- cutoff_values[ which.max(kappa_scores) ]
+optimal_cutoff
+
+```
 
 ### Part i (5 points)
 
 Once you have your "optimal" cutoff value, repeat part d using this cutoff and compare the results of this output to the results of the output for a kNN model with the optimal $k$ value you found in part g. For which statistics is the logistic regression better now and for which is it worse?
+
+```{r prob2i, eval=T, echo=T}
+
+y_hat_logit <- predict(logit_model, type='response')  
+#probabilities predicted from training data
+
+#comparing with 0.35 'optimized' LD value
+predicted_class <- factor(
+  ifelse(y_hat_logit < 0.35, '>50K', '<=50K'), levels = c('>50K', '<=50K') #positive is '<=50K' because it turns out I did *not* re-level, whoops
+  )
+
+cm_logit <- confusionMatrix(data = predicted_class, reference = y_train, positive = '>50K')
+
+print(cm_logit$table)
+print(cm_logit$overall)
+print(cm_logit$byClass)
+
+```
 
 ### Part j (15 points)
 
 Finally, let's test our two models (the logistic model with the "optimal" cutoff and the kNN model with the "optimal" $k$) on the test set. We must keep a few things in mind:
 
 1.  We must use the exact models we fit to the training set. You fit the logistic regression model in part c and you fit the kNN model in either part c or part g.
+
 2.  We should not use the results of the testing predictions to change our models. That should have been done with the training sets.
 
 Find the predictions for the test set using the models, print the output of the `confusionMatrix()` function for each model, and compare the results in a few sentences.
 
+```{r prob2j1 , eval=TRUE, echo=FALSE}
+
+#Now with test data ORIGINAL CUTOFF
+test_predictors <- test[, names(predictors)] 
+
+#probabilities for the testing data
+y_hat_logit_test <- predict(logit_model, newdata = test_predictors, type = 'response')
+
+predicted_class_test <- factor(
+  ifelse(y_hat_logit_test < 0.5, '>50K', '<=50K'), levels = c('>50K', '<=50K')
+)
+
+cm_logit_test <- confusionMatrix(data = predicted_class_test, reference = y_test, positive = '>50K')
+
+print(cm_logit_test$table)
+print(cm_logit_test$overall)
+print(cm_logit_test$byClass)
+
+
+#with test data and OPTIMIZED CUTOFF 
+#test_predictors <- test[, names(predictors)] 
+
+#probabilities for the testing data
+y_hat_logit_test_opt <- predict(logit_model, newdata = test_predictors, type = 'response')
+
+predicted_class_test_opt <- factor(
+  ifelse(y_hat_logit_test_opt < 0.35, '>50K', '<=50K'), 
+  levels = c('>50K', '<=50K')
+)
+
+cm_logit_test <- confusionMatrix(data = predicted_class_test_opt, reference = y_test, positive = '>50K')
+
+print(cm_logit_test$table)
+print(cm_logit_test$overall)
+print(cm_logit_test$byClass)
+```
+
+```{r prob2j2 , eval=TRUE, echo=FALSE}
+#with test data
+
+#class predictions for/from testing data
+y_hat_knn_test <- predict(train_k11, newdata = test_predictors, type = 'raw') 
+#use 'raw' instead of 'class' for train() trained models rather than knn3() trained models.
+#uses part g. k=11 trained model
+
+
+cm_knn_test <- confusionMatrix(data = y_hat_knn_test, reference = y_test, positive = '>50K')
+
+print(cm_knn_test$table)
+print(cm_knn_test$overall)
+print(cm_knn_test$byClass)
+
+```
+
+**Response:** The logistic regression model with optimized $LD = 0.35$ cutoff very marginally outperforms the `kNN` model at $k=11$ in terms of _Accuracy_ with `kNN` accuracy $=0.7895$ and `logit` accuracy $=0.7900$. 
+`Logistic` also outperforms in *Specificity* $=0.973$ and *Precision* $=0.707$ by good margins versus $=0.896$ and $=0.577$ respectively for the `kNN` model. From the confusion matrix, it can be seen that the `kNN` model accurately predicts *True Positives* more often compared to the logistic regression which appears to make many *True Negative* predictions in compensation.
+
 ### Part k (5 points)
 
 Even though one method may be better on a given dataset than another, that does not mean that method will always predict better. However, logistic regression has a few advantages over kNN regardless of predictive power. List at least three advantages logistic regression has over kNN.
+
+**Response:**. Irrespective of context-superior predictive power, logistic regression is on a practical level less computationally expensive: it operates on linear relationships between the feature and outcome and learned coefficients. `kNN` requires iterative distance calculations between each data point and all other points, and is comparable to `k-Means` in this regard. Logistic regression also provides more understandable interpretability as the coefficients are signed magnitudes of each predictor variable, applied by the logistic/link function. `kNN` classes observations based on 'votes' from the k-neighboring data points which may be difficult to interpret in particular with hyper-dimensional data. Because of logistic regression's relatively simple calculation, linear combinations of parameters applied by the logistic function, it has less likelihood of overfitting. `kNN`, as an iterative comparison of $\frac{ n*(n-1) }{2}$ distances will learn noise in the data, leading to overfitting and less generalizability.
