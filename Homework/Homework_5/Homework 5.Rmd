@@ -1,0 +1,626 @@
+---
+title: "MATH 3190 Homework 5"
+author: 'Focus: Notes 7 Part 2'
+date: "Due March 16, 2024"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+header-includes: \usepackage{multirow}
+editor_options:
+  chunk_output_type: console
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE, fig.width = 6, fig.height = 4)
+options(width = 55)
+library(tidyverse)
+library(RColorBrewer)
+library(ggplot2)
+library(caret)
+library(dplyr)
+library(httr)
+library(readxl)
+library(car)
+library(glmnet)
+library(kableExtra)
+library(pls)
+```
+
+Your homework should be completed in R Markdown or Quarto and Knitted to an html or pdf document. You will \`\`turn in" this homework by uploading to your GitHub Math_3190_Assignment repository in the Homework directory.
+
+# Problem 1 (20 points)
+
+Suppose $\boldsymbol{x} = (x_1,\dots, x_n )^T$ are independent and identically distributed random variables with probability density function (pdf) given by
+
+$$ f(x_i|\theta) = \theta(1-x_i)^{\theta-1};\ \ 0\le x_i\le 1,\ 0<\theta<\infty,\ i=1,\dots,n $$
+
+### Part a (4 points)
+
+Using ggplot, plot the pdf for an individual $x_i$ given $\theta=0.5$ and then again for $\theta=5$.
+
+```{r prob1a, eval=T, echo=T}
+
+f <- function(x, theta) {
+  condition <- 0 <= x & x <= 1 & theta > 0
+  result <- numeric(length(x)) 
+  
+  result[condition] <- theta * (1 - x[condition])^(theta - 1) #indexing style
+  result[!condition] <- NA
+  
+  return(result)
+}
+
+set.seed(2024)
+x <- rnorm(n = 10000, mean = 0.5, sd = 0.25)
+x <- x[x >= 0 & x <= 1]  #just filtering it directly to avoid NA entries
+
+theta_1 = 0.5
+theta_2 = 5
+
+# Calculate PDF values
+pdf_values_1 <- f(x, theta_1)
+pdf_values_2 <- f(x, theta_2)
+
+
+ggplot(data.frame(x=x, pdf=pdf_values_1))+
+  aes(x=x, y=pdf)+
+  geom_line(color='brown', lwd=1.25)+
+  labs(title = 'PDF plot of x_i between 0 and 1 and Ø =0.5',
+       x='x_i',
+       y='f(x|Ø) = Ø(1-x_i)^(Ø-1)')
+
+ggplot(data.frame(x=x, pdf=pdf_values_2))+
+  aes(x=x, y=pdf)+
+  geom_line(color='brown', lwd=1.25)+
+  labs(title = 'PDF of x_i between 0 and 1 and Ø =5',
+       x='x_i',
+       y='Ø(1-x_i)^(Ø-1)')
+
+```
+
+### Part b (5 points)
+
+Give the likelihood $L(\theta|\boldsymbol{x})$ and log-likelihood $\ell(\theta|\boldsymbol{x})$ functions in this situation.
+
+$$ L(\theta|\boldsymbol{x}) = \displaystyle \prod_{i=1}^{n} \theta(1-x_i)^{\theta-1}
+= (\prod_{i=1}^{n} \theta) (\prod_{i=1}^{n} (1-x_i)^{\theta-1})
+=\theta^n \cdot \prod_{i=1}^{n} (1-x_i)^{\theta-1} $$
+
+And thus,
+
+$$ \ell(\theta|\boldsymbol{x}) = \ln(L(\theta|\boldsymbol{x}))= \ln(\theta^n \cdot \prod_{i=1}^{n} (1-x_i)^{\theta-1}) = n\ln(\theta)+\ln(\prod_{i=1}^{n} (1-x_i)^{\theta-1}) $$
+
+$$= n\ln(\theta)+\sum_{i=1}^{n} ({\theta-1})\ln(1-x_i) =n\ln(\theta) + ({\theta-1}) \cdot \sum_{i=1}^{n} \ln(1-x_i) $$
+
+\### Part c (4 points)
+
+Find the Maximum Likelihood Estimator (MLE) $\hat{\theta}$ for $\theta$. $$ \frac{d}{d\theta}\ell(\theta\|\boldsymbol{x}) = \frac{n}{\theta}+ \sum\_{i=1}\^{n} \ln(1-x_i)$$
+
+$$ MLE : \frac{n}{\theta}+ \sum\_{i=1}\^{n} \ln(1-x_i) =0 \implies \hspace{1em} \hat\theta = \frac{-n}{\sum_{i=1}^{n} \ln(1-x_i)}$$
+
+### Part d (2 points)
+
+Show that your estimator is in fact a maximum. That is, check the second derivative of the log-likelihood.
+
+$$\frac{d^2}{d\theta}\ell(\theta|\boldsymbol{x}) = \frac{-n}{\theta^2}$$
+
+**Response:** As can be seen, for any given $\theta$, the second derivative of the log-likelihood function will be negative. The slope of the first derivative is therefore decreasing and a maximum of $\ell$ occurs where \$\ell\prime \$crosses the $y$-axis.
+
+### Part e (1 point)
+
+Find the MLE if the data values are given below. Note, the actual $\theta$ value used to generate these data was $\theta=7.3$.
+
+```{r mle_values}
+x <- c(0.0194, 0.0053, 0.2488, 0.0456, 0.2059, 0.0992, 0.1168, 0.3705, 
+       0.2129, 0.018, 0.0464, 0.1401, 0.0759, 0.1588, 0.0334, 0.2931, 
+       0.0662, 0.2292, 0.1581, 0.3462, 0.035, 0.1086, 0.0793, 0.2095, 
+       0.1419, 0.1835, 0.1107, 0.0764, 0.1331, 0.042, 0.0911, 0.1608)
+```
+
+```{r prob1e, echo=T, eval=T}
+
+mle <- function(x){
+  theta_hat <- (-length(x)) / ( sum( log1p(-x) ) ) 
+}
+
+#log1p() calculates ln(1+x) with more precision/numberical stability 
+# for small values of x.
+
+theta_hat <- mle(x)
+
+print(paste('The MLE function returns an estimate for paramater Ø of :',
+            theta_hat))
+
+```
+
+### Part f (4 points)
+
+To get an idea of how variable the maximum likelihood estimator is in this case, let's generate many samples of size 32 from this distribution, which is a Beta distribution with parameters $1$ and $\theta$. We can do this by using `rbeta(32, 1, 7.3)`.
+
+Generate at least 10,000 samples this way, compute the MLE for each, and then plot a histogram of the values using ggplot. On the plot somewhere, indicate what the standard deviation in those estimates is.
+
+```{r prob1f, echo=T, eval=T}
+
+#sample <- rbeta(32*10000, 1, 7.3)  ...32 is number of observations per sample
+
+samples <- data.frame( matrix(nrow = 10000, ncol = 32) )
+
+for (i in 1:10000) {
+  sample <- rbeta(n = 32, 1, 7.3)
+  samples[i, ] <- sample
+}
+
+samples$estimate <- apply(samples, 1, mle)
+
+std_dev <- sprintf("Standard Deviation: %.3f", sd(samples$estimate))
+
+hist_plot <- ggplot(samples, aes(x = estimate)) +
+  geom_histogram(binwidth = 0.25, fill = "orange", color = "grey25") +
+  labs(x = "Estimate Value", title = "Histogram of Estimate Values") +
+  #geom_text(aes(label = std_dev), x = 0.75, y = 300, color = "slategrey", size = 4)+
+  annotate("text", x = 12, y = 600, label = std_dev, color = "slategrey", size = 4)
+
+hist_plot
+
+
+```
+
+Now repeat this but instead of taking samples of size 32, take samples of size 100. How does this change the histogram and standard deviation of the estimates?
+
+```{r prob1f2, eval=T, echo=T}
+
+
+for (i in 1:10000) {
+  sample <- rbeta(n = 100, shape1=1, shape2=7.3)
+  samples[i, ] <- sample
+}
+
+samples$estimate <- apply(samples, 1, mle)
+
+std_dev <- sprintf("Standard Deviation: %.3f", sd(samples$estimate))
+
+hist_plot <- ggplot(samples, aes(x = estimate)) +
+  geom_histogram(binwidth = 0.25, fill = "darkorange", color = "grey25") +
+  labs(x = "Estimate Value", title = "Histogram of Estimate Values") +
+  #geom_text(aes(label = std_dev), x = 0.75, y = 300, color = "slategrey", size = 4)+
+  annotate("text", x = 12, y = 600, label = std_dev, color = "slategrey", size = 4)
+
+hist_plot
+
+```
+
+**Response:** The larger sample sizes shifts the mean of the distribution to be more normal, less skewed, and more centered over the true value. The standard deviation is somewhat lower.
+
+# Problem 2 (35 points)
+
+In the `AER` package is the data set "ShipAccidents". You can install that package and load that data using `data(ShipAccidents)`. Type `?ShipAccidents` to read about that data set.
+
+```{r prob2, eval=T, echo=T}
+library(AER)
+data("ShipAccidents")
+ShipAccidents
+
+```
+
+### Part a (3 points)
+
+Load in the data, remove the rows for which service is equal to 0, and then fit a Poisson regression model for predicting incidents from all other variables using the ShipAccidents data. Briefly explain why it makes sense to do Poisson regression here.
+
+```{r prob2a, eval=T, echo=T}
+
+
+ship_data <- ShipAccidents[ShipAccidents$service != 0, ] 
+#three factor columns
+#two discrete numerical columns
+
+ship_poisson <- glm(incidents~., data = ship_data, family = "poisson")
+
+```
+
+**Response:** Given that the outcome analyzed is a discrete count, '`incidents`', we evaluate the outcome's mean and distribution over given categories.
+
+### Part b (4 points)
+
+Using that model, interpret the slope of "service" and the slope of "construction1970-74" in original (not log) units.
+
+```{r prob2b, eval=T, echo=T}
+summary(ship_poisson)
+
+service_coeff <- coef(ship_poisson)[10]
+
+service_interp <- exp(service_coeff)
+
+service_coeff <- format(service_coeff, scientific=FALSE)
+print(service_coeff)
+print(service_interp)
+
+```
+
+**Response:** The predicted change in the mean of the distribution of `incident` when aggregate years of service increases by one is $e^{0.0000642} = 1.000064$. About one unit of increased incidents per coefficient increase
+
+### Part c (5 points)
+
+Make a residual plot of the Pearson residuals vs the linear predictors and make a QQ plot of the Pearson residuals. Comment on what these imply about the fit.
+
+```{r prob2c, eval=T, echo=T}
+
+residuals <- residuals(ship_poisson, type = "pearson")
+
+
+residual_df <- data.frame(
+  residuals = residuals,
+  linear_predictors = predict(ship_poisson)
+)
+
+residual_plot <- ggplot(residual_df, aes(x = linear_predictors, y = residuals)) +
+  geom_point(color = "darkorange", alpha = 0.95, size=2) +
+  geom_hline(yintercept = 0, color = "brown", lwd=1.25) +
+  labs(x = "Linear Predictors",
+       y = "Pearson Residuals",
+       title = "Residual Plot of Pearson Residuals vs. Linear Predictors"
+  )
+residual_plot
+```
+
+**Response:** There does not appear to be strongly discernible overall pattern, besides some odd behavior in the in the lower deviations that appears to be overly regular.
+
+### Part d (4 points)
+
+Conduct a deviance goodness-of-fit (GOF) test for a lack of fit here. Type out the null and alternative hypotheses, report the test statistic, give the p-value, and provide an interpretation.
+
+```{r prob2d, eval=T, echo=T}
+
+gof_ship <- pchisq(ship_poisson$deviance, 
+                   df = ship_poisson$df.residual,
+                   lower.tail = F) 
+#same as 1-pschisq() without lower.tail=FALSE arg
+
+print(format(gof_ship, scientific=F))
+
+```
+
+**Response:** We test the hypotheses :
+
+$H_0:$ The model is correctly specified
+
+$H_a:$ The model is not correctly specified
+
+with a right-tailed $\chi$-squared test.
+
+The sum of squared residual deviance $77.45$ on 24 degrees of freedom is relatively large.
+
+The $p$-value $=1.542 \times 10^{-7}$ of effectively $0$ provides strong evidence to reject the null hypothesis, thus there is evidence that this model is not correctly specified.
+
+### Part e (2 points)
+
+Is there evidence that this model has overdispersion? Explain.
+
+```{r prob2e, eval=T, echo=T}
+# sum of squared Pearson residuals
+poisson_Pearson_residuals <- residuals(ship_poisson, type = 'pearson')
+
+sum_squared_pearson <- sum(poisson_Pearson_residuals^2)
+
+cat("Sum of squared Pearson residuals:", sum_squared_pearson)
+
+```
+
+**Response:** The dispersion statistic $\frac{}{}=\frac{69.511}{24}=2.896$ is much greater than $1.0$. This suggests that the variance is much greater than the mean, contrary to the essential property of the Poisson distribution. There may be positive correlation between response probabilities and counts or too much variation between response probabilities or counts. The standard errors of estimates may be underestimated, leading to a false evaluation of a model's precision.
+
+### Part f (6 points)
+
+Fit a "quasipoisson" model to these data. 
+Using this model, obtain an approximate 95% confidence interval for the mean response for a ship of type "B" with construction between 1965 and 1969, with operation between 1960 and 1974, and with 2000 aggregate months of service. 
+You can construct this interval using a $t$-critical value with 24 degrees of freedom since the quasipoisson family more closely follows a $t$-distribution than a normal one. Interpret the interval.
+
+```{r prob2f, eval=T, echo=T}
+
+quasi_ships <- glm( formula = incidents ~ . , 
+                    family = "quasipoisson", 
+                    data = ship_data ) 
+
+summary(quasi_ships)
+
+#intervals
+row_obs <- data.frame( type = 'B', construction = '1965-69', 
+                       operation = '1960-74', service = 2000 )
+
+t_critical <- qt(0.975, 24)
+
+mean_response_ship <- predict(quasi_ships, row_obs, 
+                              type = "response", se.fit = TRUE)
+
+lower_bound_quasi <- mean_response_ship$fit-t_critical*mean_response_ship$se.fit
+upper_bound_quasi <- mean_response_ship$fit+t_critical*mean_response_ship$se.fit
+
+conf_interval_quasipoiss <- data.frame(lower_bound = lower_bound_quasi, 
+                                   upper_bound = upper_bound_quasi)
+
+print(conf_interval_quasipoiss)
+
+
+```
+**Response:** We are 95% confident that the true mean number of accidents for a ship with the given profile of type B, 1965-69 construction, etc., is between 1.303744 and 15.7899 incidents.
+
+### Part g (5 points)
+
+Now construct an approximate 95% prediction interval for the number of incidents for the ship described in part f using the `qpois()` function. Interpret the interval.
+
+```{r prob2g, eval=T, echo=T}
+
+#prediction interval using quantiles from Poisson distribution
+lower_pred <- pmax(0, qpois(0.025, 
+                     lambda = 1.303744)-t_critical*mean_response_ship$se.fit)
+upper_pred <- qpois(0.975, 
+                    lambda = 15.7899)+t_critical*mean_response_ship$se.fit
+
+pred_interval <- data.frame(lower_bound = lower_pred, 
+                            upper_bound = upper_pred)
+print(pred_interval)
+
+```
+We are 95% confident that the true number of accidents for a ship of the given profile, type B, 65-69 construction, etc. is between 0 and 31.24308.
+### Part h (6 points)
+
+Suppose we did not catch the fact that this model is overdispersed. Repeat parts f and g using the model fit with the "poisson" family, not Poisson and using a z-interval for the mean response rather than a t-interval. Compare your results to parts f and g and comment on what is different.
+```{r prob2h, eval=T, echo=T}
+
+#intervals from usual Poisson
+
+row_obs <- data.frame( type = 'B', construction = '1965-69', 
+                       operation = '1960-74', service = 2000 )
+
+t_critical <- qt(0.975, 24)
+
+mean_response_ship_2 <- predict(ship_poisson, row_obs, 
+                              type = "response", se.fit = TRUE)
+
+lower_bound_poiss <- mean_response_ship_2$fit-t_critical*mean_response_ship_2$se.fit
+upper_bound_poiss <- mean_response_ship_2$fit+t_critical*mean_response_ship_2$se.fit
+
+conf_interval_poiss <- data.frame(lower_bound = lower_bound_poiss, 
+                                   upper_bound = upper_bound_poiss)
+
+
+lower_pred <- pmax(0, qpois(0.025, 
+                     lambda = 1.303744)-t_critical*mean_response_ship_2$se.fit)
+upper_pred <- qpois(0.975, 
+                    lambda = 15.7899)+t_critical*mean_response_ship_2$se.fit
+
+pred_interval_poiss <- data.frame(lower_bound = lower_pred, 
+                            upper_bound = upper_pred)
+
+
+print(conf_interval_poiss)
+print(pred_interval_poiss)
+```
+**Response:** Were the confidence interval constructed from the original Poisson rather than Quasi-Poisson model, the interval containing the true mean number of incidents would be smaller from about 1.3 to 15.8 to about 4.3 to 12.8.  Moreover the prediction interval is also reduced from about 0 to 28.3 to about 0 to 19.3.  The model gives a more precise interval than is warranted due to dispersion of the data.
+
+
+# Problem 3 (45 points)
+
+In Homework 4, we briefly looked at a small sample from this (?) data set. Now we have the full data set with 20,640 districts. For districts in California from 1990, we want to predict the median house value for the district based on the district location (longitude and latitude), the median house age in the block group, the total number of rooms in the homes, the total number of bedrooms, the population in the district, the number of households, and the median income (in \$10,000). These data were obtained from [scikit-learn.org](https://scikit-learn.org/stable/datasets.html) and can be found in the Data folder of the Math3190_Sp24 GitHub repo.
+
+
+### Part a (3 points)
+
+Read in the data, assign appropriate column names to the columns and then take logs of all variables except lat and long. Once this is done, split the data into training and testing sets with the testing containing 20% of the values. Set a seed when you do this.
+
+```{r, prob3a, eval=T, echo=T}
+
+housing <- readr::read_csv( '/Users/bram/Documents/Math_3190/Homework_5_Data/cal_housing.data' , 
+                            col_names = FALSE )  |> 
+  rename(long = X1,
+         lat = X2,
+         medianAge = X3,
+         rooms = X4,
+         bedrooms = X5,
+         population = X6,
+         households = X7,
+         medianIncome = X8,
+         medianValue = X9
+         ) |> 
+  mutate( across(-c(lat, long), ~ log(.x)))
+
+
+set.seed(2024)
+test_index <- createDataPartition(housing$medianValue, 
+                                  times = 1, p = 0.20, 
+                                  list = F)
+
+housing_train <- housing[ -test_index, ]
+housing_test <- housing[ test_index, ]
+
+
+```
+
+### Part b (3 points)
+
+Use the following command to view pair-wise scatter plots for the data here. Change `housing_train` to whatever you called the training set and be sure to change `eval = F` to `eval = T` in the option for the code chunk. Note, that `lower` option changes the points to be plotted with periods instead of circles. This speeds up plotting time considerably and makes the plots more readable since there are many data points here.
+
+Based on these plots, does multicollinearity appear to be an issue here?
+
+```{r house_pairs, eval = T}
+
+library(GGally)
+ggpairs(housing_train, 
+        lower = list(continuous = wrap("points", shape = "."))
+)
+
+```
+**Response:** From the pair-wise plots and correlation coefficients, there are a number of variables which feature strong correlations among themselves, in particular the strongly positive correlations among `Rooms`, `Bedrooms`, `Households`, and `Population`.  This suggests that these variables are capturing the same informtion in the variation of house median value among districts.
+
+### Part c (3 points)
+
+Fit a OLS regression model predicting house prices from all other variables. Check its summary output and its VIF values. Comment on the VIFs.
+
+```{r prob3c, eval=T, echo=T}
+
+ols_house <- glm(formula = medianValue ~ ., data = housing_train, family = gaussian)
+
+print(summary(ols_house))
+
+print(vif(ols_house))
+
+```
+**Response:** Besides `median age` and `median income`, all other variables display egregiously high VIFs and are subject to strong multicollinearity.
+
+### Part d (3 points)
+
+Fit a principal component model using the `pcr()` function in the `pls` package. Since the variables are on very different scales, use the `scale = TRUE` option in the function. Then find the VIF values for this model. The `vif()` function from the `car` library won't work here. Instead, take the diagonals of the inverse of the correlation matrix (like we did in the regularization section of Notes 7) for the `scores` output.
+
+```{r prob3d, eval=T, echo=T}
+
+pcr_housing <- pcr(medianValue ~ . , data=housing_train , scale=T)
+
+
+vif_scores <- pcr_housing$scores |> cor() |> solve() |> diag() |> round(5)
+
+print(vif_scores)
+
+```
+**Response:** All VIF scores are equal to 1, suggesting all multicollinearity as been resolved, as expected, by principal components of the regression.
+
+### Part e (5 points)
+
+Now take the summary of your principal component model. With PCA, the common amount of variation we want to explain in the predictors is 90% or more. How many components are needed to achieve this? For that number of components, how much of the variation in log of home values is explained? How many components are needed to explain a "good" amount of the variation in the log of home values? 
+Note: the upper bound on the amount of variation in the log of home values here with all 8 components will be equal to the $R^2$ value of the OLS model.
+
+```{r prob3e, eval=T, echo=T}
+
+print(summary(pcr_housing))
+
+```
+**Response:**
+Four principal components at least are necessary to explain more than $90%$ variation in the predictors, at $96.94%$, for which only $49.16%$ of variation in the $\ln(medianHomeValue)$ is explained.  All eight components explain $66.9%$ of the variation in $\ln(medianHomeValue)$, although $100%$ of the predictor variation is explained.
+
+### Part f (3 points)
+
+Now fit a partial least squares model using the `plsr()` function in the `pls` package. Then find the VIF values for this model like you did in part d.
+
+```{r prob3f, eval=T, echo=T}
+
+housing_pls <- plsr(medianValue ~ . , data=housing_train, scale=T
+                  )
+vif_scores_pls <- housing_pls$scores |> cor() |> solve() |> diag() |> round(5)
+
+print(vif_scores_pls)
+
+```
+**Response:** The PLS model returns VIF values of 1 across 8 principal components.
+
+### Part g (4 points)
+
+Now take the summary of your partial least squares model. Compare this output to the summary of the PCA model. Explain what the differences are.
+```{r prob3g, echo=T, eval=T}
+
+print(summary(housing_pls))
+
+```
+**Response:** Whilst the amount of variation in predictors explained by each of the principal components is lower for the PLS regression, at each component there is a greater portion of variation explained in the log of median housing price.
+
+How many components are needed to balance a good amount of variation explained in $X$ and in $y$ for the PLS model?
+
+**Response:**. Four principal components explain $91.5%$ of variation in $X$ and $60.1%$ of variation in $y$ whereas another large jump in explained variance of $y$ happens for 5 principal components at $66.6%$.  After this, there is very little improvement in explaining variance in the outcome.  $5$ principal components provides a good balance.
+
+### Part h (5 points)
+
+In part e, you said how many components were needed for the PCA. Using that number of components, use the PCA and PLS models to find the root MSE of the model when predicting the testing set. 
+Note: the root MSE (or residual standard error, also abbreviated RMSE) is found by taking the square root of the sum of squared residuals divided by the residual degrees of freedom, which is $n-p$. 
+Also, be aware that when you use the `predict()` function on your model, it will give you predictions for each number of components. You can access the predictions for using 3 components, for example, by typing `predict(pca_model, test_set)[,,3]`.
+
+```{r prob3h, eval=T, echo=T }
+
+pca_predictions <- predict(pcr_housing, housing_test)[,,4]  
+pls_predictions <- predict(housing_pls, housing_test)[,,4]  
+
+pca_residuals <- housing_test$medianValue - pca_predictions
+pls_residuals <- housing_test$medianValue - pls_predictions
+
+# RMSE
+n <- nrow(housing_test)  
+
+rmse_pca <- sqrt( sum(pca_residuals^2) / (n - 4) )
+rmse_pls <- sqrt( sum(pls_residuals^2) / (n - 4) )
+
+print(rmse_pca)
+print(rmse_pls)
+
+```
+**Response:** The PCA model has $RMSE=0.398$ when predicting the testing set.  The PLS model has a lower $RMSE=0.351$ when predicting the testing set. 
+
+
+Then in part g, you said how many components were needed for the PLS Using that number of components, use the PCA and PLS models to find the root MSE of the model when predicting the testing set.Compare the results of the predictions in both cases.
+
+```{r prob3h2, eval=T, echo=T}
+
+pca_predictions <- predict(pcr_housing, housing_test)[,,5]  
+pls_predictions <- predict(housing_pls, housing_test)[,,5]  
+
+pca_residuals <- housing_test$medianValue - pca_predictions
+pls_residuals <- housing_test$medianValue - pls_predictions
+
+# RMSE
+n <- nrow(housing_test)  
+
+rmse_pca <- sqrt( sum(pca_residuals^2) / (n - 5) )
+rmse_pls <- sqrt( sum(pls_residuals^2) / (n - 5) )
+
+print(rmse_pca)
+print(rmse_pls)
+
+```
+**Response:** Whilst the PCA model has an $RMSE=0.398$, unchanged when rounding, the PLS model has an $RMSE=0.320$ a more significant drop in error when predicting the testing set. 
+
+
+### Part i (10 points)
+
+Using the number of components you said were needed for the PLS model in part g, come up with reasonable surrogates for each of those components. Look at the projection output for this. Make sure to center and scale each variable. You can do this with the `scale()` function.
+
+Then fit a OLS model using those surrogates in the training set. Check the VIF of this model to make sure each one is below 5. If they are not, your surrogates should be changed.
+
+```{r prob3i, eval=T, echo=T}
+
+projections <- apply(housing_pls$projection, 2, 
+                     function(x) sort(x, decreasing = TRUE))
+
+print(round(projections, 3))
+
+X_s <- housing_train |> 
+  select(-medianValue) |> 
+  as.matrix() |> 
+  scale()
+
+surrogate1 <- X_s[, 1]
+surrogate2 <- (X_s[, 7] + X_s[, 8]) - X_s[, 2]
+surrogate3 <- (X_s[, 1] + X_s[, 2] + X_s[, 3]) - X_s[, 8]
+surrogate4 <- (X_s[, 6]+ X_s[, 7]) + X_s[, 8]
+surrogate5 <- (X_s[, 7] + X_s[, 8])
+
+
+surrogate_data <- data.frame(
+  s1 = surrogate1,
+  s2 = surrogate2,
+  s3 = surrogate3,
+  s4 = surrogate4,
+  s5 = surrogate5
+)
+
+
+ols_surrogate_model <- lm(housing_train$medianValue ~ ., data = surrogate_data)
+
+print(vif(ols_surrogate_model))
+
+print('Sorry, I have no time to finish after work')
+```
+
+
+### Part j (6 points)
+
+Now using that model you fit in the previous part with the surrogates, find the root MSE for predicting the testing set using that model, and compare it to what you got in part h. Describe some pros and cons of the surrogate model.
+
+Hint: to predict using this model, you will have to create a `newdata` data frame (or tibble) and then redefine your surrogates in that data frame using the scaled testing data set. Make sure the variable names in the `newdata` data frame match the variables names used in the model you defined in part i.
+
+SORRY I HAVE NOT TIME TO FINISH
