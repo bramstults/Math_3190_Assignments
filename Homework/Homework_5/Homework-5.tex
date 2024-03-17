@@ -288,6 +288,7 @@ indicate what the standard deviation in those estimates is.
 \begin{Shaded}
 \begin{Highlighting}[]
 \CommentTok{\#sample \textless{}{-} rbeta(32*10000, 1, 7.3)  ...32 is number of observations per sample}
+\FunctionTok{suppressWarnings}\NormalTok{(\{}
 
 \NormalTok{samples }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{( }\FunctionTok{matrix}\NormalTok{(}\AttributeTok{nrow =} \DecValTok{10000}\NormalTok{, }\AttributeTok{ncol =} \DecValTok{32}\NormalTok{) )}
 
@@ -307,6 +308,8 @@ indicate what the standard deviation in those estimates is.
   \FunctionTok{annotate}\NormalTok{(}\StringTok{"text"}\NormalTok{, }\AttributeTok{x =} \DecValTok{12}\NormalTok{, }\AttributeTok{y =} \DecValTok{600}\NormalTok{, }\AttributeTok{label =}\NormalTok{ std\_dev, }\AttributeTok{color =} \StringTok{"slategrey"}\NormalTok{, }\AttributeTok{size =} \DecValTok{4}\NormalTok{)}
 
 \NormalTok{hist\_plot}
+
+\NormalTok{\})}
 \end{Highlighting}
 \end{Shaded}
 
@@ -41299,17 +41302,31 @@ your surrogates should be changed.
 \begin{Highlighting}[]
 \NormalTok{X\_s }\OtherTok{\textless{}{-}}\NormalTok{ housing\_train }\SpecialCharTok{|\textgreater{}} 
   \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{medianValue) }\SpecialCharTok{|\textgreater{}} 
-  \FunctionTok{as.matrix}\NormalTok{() }\SpecialCharTok{|\textgreater{}} 
+  \FunctionTok{as.tibble}\NormalTok{() }\SpecialCharTok{|\textgreater{}} 
   \FunctionTok{scale}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
 
-\NormalTok{surrogate1 }\OtherTok{\textless{}{-}}\NormalTok{ X\_s[, }\DecValTok{1}\NormalTok{]}
-\NormalTok{surrogate2 }\OtherTok{\textless{}{-}}\NormalTok{ (X\_s[, }\DecValTok{7}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{8}\NormalTok{]) }\SpecialCharTok{{-}}\NormalTok{ X\_s[, }\DecValTok{2}\NormalTok{]}
-\NormalTok{surrogate3 }\OtherTok{\textless{}{-}}\NormalTok{ (X\_s[, }\DecValTok{1}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{2}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{3}\NormalTok{]) }\SpecialCharTok{{-}}\NormalTok{ X\_s[, }\DecValTok{8}\NormalTok{]}
-\NormalTok{surrogate4 }\OtherTok{\textless{}{-}}\NormalTok{ (X\_s[, }\DecValTok{6}\NormalTok{]}\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{7}\NormalTok{]) }\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{8}\NormalTok{]}
-\NormalTok{surrogate5 }\OtherTok{\textless{}{-}}\NormalTok{ (X\_s[, }\DecValTok{7}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{8}\NormalTok{])}
+\begin{verbatim}
+## Warning: `as.tibble()` was deprecated in tibble 2.0.0.
+## i Please use `as_tibble()` instead.
+## i The signature and semantics have changed, see
+##   `?as_tibble`.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see
+## where this warning was generated.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{surrogate1 }\OtherTok{\textless{}{-}}\NormalTok{ X\_s[, }\DecValTok{1}\NormalTok{] }
+\NormalTok{surrogate2 }\OtherTok{\textless{}{-}}\NormalTok{ (X\_s[, }\DecValTok{1}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ X\_s[, }\DecValTok{2}\NormalTok{])}
+\NormalTok{surrogate3 }\OtherTok{\textless{}{-}}\NormalTok{ (X\_s[, }\DecValTok{1}\NormalTok{]}\SpecialCharTok{+}\NormalTok{X\_s[, }\DecValTok{2}\NormalTok{]}\SpecialCharTok{+}\NormalTok{X\_s[, }\DecValTok{3}\NormalTok{]) }\SpecialCharTok{{-}}\NormalTok{ X\_s[, }\DecValTok{8}\NormalTok{] }
+\NormalTok{surrogate4 }\OtherTok{\textless{}{-}}\NormalTok{  X\_s[, }\DecValTok{1}\NormalTok{]}\SpecialCharTok{+}\NormalTok{X\_s[, }\DecValTok{2}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{X\_s[, }\DecValTok{8}\NormalTok{] }
+\NormalTok{surrogate5 }\OtherTok{\textless{}{-}}\NormalTok{  X\_s[, }\DecValTok{1}\NormalTok{]}\SpecialCharTok{+}\NormalTok{X\_s[, }\DecValTok{2}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{X\_s[, }\DecValTok{4}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{X\_s[, }\DecValTok{5}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{X\_s[, }\DecValTok{6}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{X\_s[, }\DecValTok{7}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{X\_s[, }\DecValTok{8}\NormalTok{]}
 
 
-\NormalTok{surrogate\_data }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}
+\NormalTok{surrogate\_data }\OtherTok{\textless{}{-}} \FunctionTok{tibble}\NormalTok{(}
   \AttributeTok{s1 =}\NormalTok{ surrogate1,}
   \AttributeTok{s2 =}\NormalTok{ surrogate2,}
   \AttributeTok{s3 =}\NormalTok{ surrogate3,}
@@ -41318,26 +41335,18 @@ your surrogates should be changed.
 \NormalTok{)}
 
 
-\NormalTok{ols\_surrogate\_model }\OtherTok{\textless{}{-}} \FunctionTok{lm}\NormalTok{(housing\_train}\SpecialCharTok{$}\NormalTok{medianValue }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ., }\AttributeTok{data =}\NormalTok{ surrogate\_data)}
+\NormalTok{ols\_surrogate\_model }\OtherTok{\textless{}{-}} \FunctionTok{glm}\NormalTok{(housing\_train}\SpecialCharTok{$}\NormalTok{medianValue }\SpecialCharTok{\textasciitilde{}}\NormalTok{ . , }\AttributeTok{data =}\NormalTok{ surrogate\_data, )}
 
 \FunctionTok{print}\NormalTok{(}\FunctionTok{vif}\NormalTok{(ols\_surrogate\_model))}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-##        s1        s2        s3        s4        s5 
-##  7.465001 26.288066  2.589259 12.599813 35.062086
+##       s1       s2       s3       s4       s5 
+## 1.046996 1.652076 2.982269 3.700849 1.267739
 \end{verbatim}
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{print}\NormalTok{(}\StringTok{\textquotesingle{}Sorry, I have no time to finish after work\textquotesingle{}}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] "Sorry, I have no time to finish after work"
-\end{verbatim}
+\textbf{Response:} All VIFs are below 5.
 
 \hypertarget{part-j-6-points}{%
 \subsubsection{Part j (6 points)}\label{part-j-6-points}}
@@ -41353,6 +41362,45 @@ surrogates in that data frame using the scaled testing data set. Make
 sure the variable names in the \texttt{newdata} data frame match the
 variables names used in the model you defined in part i.
 
-SORRY I HAVE NOT TIME TO FINISH
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{newdata }\OtherTok{\textless{}{-}}\NormalTok{ housing\_test }\SpecialCharTok{|\textgreater{}} 
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{medianValue) }\SpecialCharTok{|\textgreater{}} 
+  \FunctionTok{as.tibble}\NormalTok{() }\SpecialCharTok{|\textgreater{}} 
+  \FunctionTok{scale}\NormalTok{()}
+
+\NormalTok{surrogate1 }\OtherTok{\textless{}{-}}\NormalTok{ newdata[, }\DecValTok{1}\NormalTok{]}
+\NormalTok{surrogate2 }\OtherTok{\textless{}{-}}\NormalTok{ (newdata[, }\DecValTok{1}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ newdata[, }\DecValTok{2}\NormalTok{]) }
+\NormalTok{surrogate3 }\OtherTok{\textless{}{-}}\NormalTok{ (newdata[, }\DecValTok{1}\NormalTok{]}\SpecialCharTok{+}\NormalTok{newdata[, }\DecValTok{2}\NormalTok{]}\SpecialCharTok{+}\NormalTok{newdata[, }\DecValTok{3}\NormalTok{]) }\SpecialCharTok{{-}}\NormalTok{ newdata[, }\DecValTok{8}\NormalTok{]}
+\NormalTok{surrogate4 }\OtherTok{\textless{}{-}}\NormalTok{  newdata[, }\DecValTok{1}\NormalTok{]}\SpecialCharTok{+}\NormalTok{newdata[, }\DecValTok{2}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{newdata[, }\DecValTok{8}\NormalTok{] }
+\NormalTok{surrogate5 }\OtherTok{\textless{}{-}}\NormalTok{  newdata[, }\DecValTok{1}\NormalTok{]}\SpecialCharTok{+}\NormalTok{newdata[, }\DecValTok{2}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{newdata[, }\DecValTok{4}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{newdata[, }\DecValTok{5}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{newdata[, }\DecValTok{6}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{newdata[, }\DecValTok{7}\NormalTok{]}\SpecialCharTok{{-}}\NormalTok{newdata[, }\DecValTok{8}\NormalTok{]}
+
+\NormalTok{surrogate\_test\_data }\OtherTok{\textless{}{-}} \FunctionTok{tibble}\NormalTok{(}
+  \AttributeTok{s1 =}\NormalTok{ surrogate1,}
+  \AttributeTok{s2 =}\NormalTok{ surrogate2,}
+  \AttributeTok{s3 =}\NormalTok{ surrogate3,}
+  \AttributeTok{s4 =}\NormalTok{ surrogate4,}
+  \AttributeTok{s5 =}\NormalTok{ surrogate5}
+\NormalTok{)}
+
+\NormalTok{new\_predictions }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(ols\_surrogate\_model, surrogate\_test\_data)  }
+ 
+\NormalTok{new\_residuals }\OtherTok{\textless{}{-}}\NormalTok{ housing\_test}\SpecialCharTok{$}\NormalTok{medianValue }\SpecialCharTok{{-}}\NormalTok{ new\_predictions}
+
+\CommentTok{\# RMSE}
+\NormalTok{n }\OtherTok{\textless{}{-}} \FunctionTok{nrow}\NormalTok{(housing\_test)  }
+\NormalTok{rmse\_new }\OtherTok{\textless{}{-}} \FunctionTok{sqrt}\NormalTok{( }\FunctionTok{sum}\NormalTok{(new\_residuals}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (n }\SpecialCharTok{{-}} \DecValTok{5}\NormalTok{) )}
+
+\FunctionTok{print}\NormalTok{(rmse\_new)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.3457621
+\end{verbatim}
+
+\textbf{Response:} Employing the surrogates created manually, the
+\(RMSE=0.346\) when predicting from the testing data, which is somewhat
+greater than the RMSE of \(0.320\) obtained from the PLS model.
 
 \end{document}
