@@ -3,15 +3,13 @@ title: "MATH 3190 Homework 6"
 author: 'Focus: Notes 8'
 date: "Due March 30, 2024"
 output:
-  html_document:
-    df_print: paged
   pdf_document: default
+  html_document: default
 header-includes: \usepackage{multirow}
 editor_options:
   chunk_output_type: console
-  markdown:
-    wrap: 72
 urlcolor: blue
+always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
@@ -49,7 +47,7 @@ just left on-time. What is the probability that it was a flight of
 airline A?
 
 ![Problem 1
-response](/Users/bram/Documents/Math_3190/Homework_6_Data/3190_HW6_Prob1.pdf){#id
+response](/Users/bram/Documents/Math_3190/Math_3190_Assignments/Homework/Homework_6/3190_HW6_Prob1.pdf){#id
 .class width="75%"}
 
 # Problem 2 (13 points)
@@ -73,7 +71,7 @@ write down a function that is proportional to the posterior of $\lambda$
 given $\boldsymbol{x}$. We call this $p(\lambda|\boldsymbol{x})$.
 
 ![Problem 2
-response](/Users/bram/Documents/Math_3190/Homework_6_Data/3190_HW6_Prob2.pdf){.class
+response](3190_HW6_Prob2.pdf){.class
 width="75%"}
 
 ### Part c (3 points)
@@ -213,7 +211,7 @@ results$interval_str <- sprintf("[%.3f, %.3f]", results$interval_lower, results$
 results |> 
   rownames_to_column(var = "row_id") |> 
   select(-c(interval_lower, interval_upper, row_id)) |> #retirer la merde
-  kable(col.names = c("⍺_0", "Credible Interval")) |> 
+  kable(col.names = c("a_0", "Credible Interval")) |> 
   kable_styling(full_width = FALSE) |> 
   column_spec(2, bold = TRUE)
 ```
