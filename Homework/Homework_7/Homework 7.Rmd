@@ -3,9 +3,9 @@ title: "MATH 3190 Homework 7"
 author: 'Focus: Notes 9'
 date: "Due April 6, 2024"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 header-includes: \usepackage{multirow}
 editor_options:
   chunk_output_type: console
@@ -77,8 +77,8 @@ gradient_descent <- function(x_k, f, gradient, findmax = FALSE, max_iter = 200,
   
   for (k in 1:max_iter) {
     
-    # objective function based on findmax
-    f_eval <- obj_func(x_k)
+    
+    f_eval <- f(x_k)
     
     #  line search
     while (obj_func(x_k - gamma * obj_gradient(x_k)) >
@@ -130,20 +130,31 @@ fun_prime <- function(x){
   (2*x*(x+1)*exp(-x^2)) / (x^2 + 1) + exp(-x^2)*log(x^2 + 1)*(-2*x^2 - 2*x + 1)
 }
 
+
+gradient_descent(x_k= 1, f=fun, gradient=fun_prime, findmax = F, gamma=1, beta=0.5)
+gradient_descent(x_k= 0.5, f=fun, gradient=fun_prime, findmax = F, gamma=1, beta=0.5)
+gradient_descent(x_k= -0.5, f=fun, gradient=fun_prime, findmax = F, gamma=1, beta=0.5)
+
 gradient_descent(x_k= -1, f=fun, gradient=fun_prime, findmax = F, gamma=1, beta=0.5)
 
 ```
 
-**Response:** The minimum of -0.0623 is obtained in 31 iterations. \### Part d (3 points)
+**Response:** The minimum of -0.0623 is obtained in 31 iterations. The minimization becomes easily stuck around 0 for $x_k=-0.5, 0.5$, converging in seven to eight iterations to $0$, whereas it does not converge for $x_k=1$
 
+### Part d (3 points)
 Use your gradient descent function to find the global **max** of $f(x)=\ln(1+x^2)(1+x)e^{-x^2}$. Again, try several starting points. Keep track of and report the number of iterations needed to converge at the different starting points.
 
 ```{r prob1d, eval=T, echo=T}
 
-gradient_descent(x_k=1 , f=fun, gradient=fun_prime, findmax = T, gamma=0.9, beta=0.5)
+x_k_minus1_max <- gradient_descent(x_k=-1 , f=fun, gradient=fun_prime, findmax = T, gamma=0.9, beta=0.5)
+x_k_minus.5_max <- gradient_descent(x_k=-0.5 , f=fun, gradient=fun_prime, findmax = T, gamma=0.9, beta=0.5)
+x_k_.5_max <- gradient_descent(x_k=0.5 , f=fun, gradient=fun_prime, findmax = T, gamma=0.9, beta=0.5)
+x_k_1_max <- gradient_descent(x_k=1 , f=fun, gradient=fun_prime, findmax = T, gamma=0.9, beta=0.5)
+
+
 ```
 
-**Response:** The maximum of 0.5100 is obtained in one single iteration, however this was only obtained by initializing $x_k=1$. The maximization seems to become easily stuck regardless modifying initial $\gamma$ or $\beta$.
+**Response:** The maximum of $0.5102$ is obtained in five iterations obtained by initializing $x_k=1$. The maximization seems to become easily stuck in particular for negative values, maximizing at $0.0879$ for $x_k=-1, -0.5$.
 
 ### Part e (6 points)
 
@@ -358,17 +369,22 @@ start <- c(0,0,0)
 ln_likely <- function(b){
   sum( y * (b[1] + b[2]*x_1 + b[3]*x_2) ) - sum( log( 1 + exp(b[1] + b[2]*x_1 + b[3]*x_2)) )
 }
+
+ln_likely_2 <- function(b){
+  #exp_line <- exp(b[1] + b[2]*x_1 + b[3]*x_2)
+  sum(y * log((exp(b[1] + b[2]*x_1 + b[3]*x_2))/(1+exp(b[1] + b[2]*x_1 + b[3]*x_2))) )+sum((1-y)*log(1/(1+exp(b[1] + b[2]*x_1 + b[3]*x_2))))
+}
  
 nabla_likely <- function(b){
   
-  exp_values <- exp(b[1] + b[2]*x_1 + b[3]*x_2)
+  #exp_values <- exp(b[1] + b[2]*x_1 + b[3]*x_2)
   #exp_values <- pmax(exp_values, .Machine$double.eps) # clipping to avoid underflow
   
-  d_beta_0 <- sum(y - (exp_values ) / (1 + exp_values))
+  d_beta_0 <- sum(y - (exp(b[1] + b[2]*x_1 + b[3]*x_2)) / (1 + exp(b[1] + b[2]*x_1 + b[3]*x_2)))
   
-  d_beta_1 <- sum(y * x_1 - (x_1 * exp_values ) / (1 + exp_values))
+  d_beta_1 <- sum(y * x_1 - (x_1 * exp(b[1] + b[2]*x_1 + b[3]*x_2) ) / (1 + exp(b[1] + b[2]*x_1 + b[3]*x_2)))
   
-  d_beta_2 <- sum(y * x_2 - (x_2 * exp_values ) / (1 + exp_values))
+  d_beta_2 <- sum(y * x_2 - (x_2 * exp(b[1] + b[2]*x_1 + b[3]*x_2) ) / (1 + exp(b[1] + b[2]*x_1 + b[3]*x_2)))
   
   c(d_beta_0, d_beta_1, d_beta_2)
 }
